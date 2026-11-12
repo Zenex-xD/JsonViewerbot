@@ -187,14 +187,14 @@ class DirectServerHandler(BaseHTTPRequestHandler):
                         self.send_error(404, "No completed chunks found for this file.")
                         return
 
-                    zip_path = ZIPS_DIR / f"{target_id}_all_chunks.zip"
+                    zip_path = ZIPS_DIR / f"{target_id}_{job['id']}_{job['records_per_chunk']}_all_chunks.zip"
                     if not zip_path.exists():
                         chunks = db.get_chunks_for_job(job["id"])
                         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                             for c in chunks:
                                 if os.path.exists(c["file_path"]):
                                     zf.write(c["file_path"], arcname=f"chunk_{c['chunk_index']}.json")
-                    self._serve_file(str(zip_path), f"{Path(f['original_name']).stem}_chunks.zip")
+                    self._serve_file(str(zip_path), f"{Path(f['original_name']).stem}_{job['records_per_chunk']}_chunks.zip")
                     return
 
                 elif dl_type == "original":

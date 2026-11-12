@@ -79,11 +79,12 @@ def get_explorer_keyboard(file_id: str, current_page: int, total_records: int) -
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_download_keyboard(file_id: str, chunks: List[Dict[str, Any]], page: int = 0) -> InlineKeyboardMarkup:
+def get_download_keyboard(file_id: str, chunks: List[Dict[str, Any]], page: int = 0, job_id: Optional[str] = None) -> InlineKeyboardMarkup:
     """Download menu with individual chunks, Download All ZIP, and Download Original."""
+    effective_job_id = job_id or (chunks[0]["job_id"] if chunks else "")
     keyboard = [
         [
-            InlineKeyboardButton("📦 Download All (ZIP)", callback_data=f"dl_all:{file_id}"),
+            InlineKeyboardButton("📦 Download All (ZIP)", callback_data=f"dl_all:{file_id}:{effective_job_id}"),
             InlineKeyboardButton("📄 Download Original", callback_data=f"dl_orig:{file_id}")
         ]
     ]
@@ -103,7 +104,7 @@ def get_download_keyboard(file_id: str, chunks: List[Dict[str, Any]], page: int 
         size_str = f"{size_kb:.0f}KB" if size_kb < 1024 else f"{(size_kb/1024):.1f}MB"
         row.append(InlineKeyboardButton(
             f"Chunk #{c1['chunk_index']} ({c1['record_count']:,} rec, {size_str})",
-            callback_data=f"dl_chunk:{file_id}:{c1['chunk_index']}"
+            callback_data=f"dl_chunk:{effective_job_id}:{c1['chunk_index']}"
         ))
         if i + 1 < len(page_chunks):
             c2 = page_chunks[i + 1]
@@ -111,7 +112,7 @@ def get_download_keyboard(file_id: str, chunks: List[Dict[str, Any]], page: int 
             size_str2 = f"{size_kb2:.0f}KB" if size_kb2 < 1024 else f"{(size_kb2/1024):.1f}MB"
             row.append(InlineKeyboardButton(
                 f"Chunk #{c2['chunk_index']} ({c2['record_count']:,} rec, {size_str2})",
-                callback_data=f"dl_chunk:{file_id}:{c2['chunk_index']}"
+                callback_data=f"dl_chunk:{effective_job_id}:{c2['chunk_index']}"
             ))
         chunk_rows.append(row)
 

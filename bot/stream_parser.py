@@ -92,64 +92,73 @@ class StreamingJsonAnalyzer:
             }
 
     def _analyze_with_ijson(self) -> Dict[str, Any]:
-        """Streaming analysis using ijson."""
+        """Streaming analysis using ijson with multi-section database backup detection."""
         root_type = "unknown"
         records_path = ""
         sections = []
+        section_counts = {}
         sample_schema = {}
         sample_records = []
         total_records = 0
 
-        # Pass 1: detect root type and find array container
         with open(self.filepath, "rb") as f:
             parser = ijson.parse(f)
             first_event = None
-            candidate_arrays = []
-            
+
             for prefix, event, value in parser:
                 if first_event is None:
                     first_event = (prefix, event, value)
                     if event == "start_array":
                         root_type = "array"
                         records_path = "item"
-                        break
                     elif event == "start_map":
                         root_type = "object"
-                
+
                 if root_type == "object":
                     # Detect top-level sections
                     if prefix and "." not in prefix and event == "map_key":
                         if value not in sections:
                             sections.append(value)
-                    # Detect top-level arrays
-                    if event == "start_array":
-                        candidate_arrays.append(prefix)
-                        if not records_path:
-                            # Pick best candidate like 'records', 'items', 'data', 'rows'
-                            if any(k in prefix.lower() for k in ["record", "item", "data", "row", "user", "result", "list"]):
-                                records_path = f"{prefix}.item"
-                        if len(candidate_arrays) >= 10:
-                            break
 
-            if root_type == "object" and not records_path and candidate_arrays:
-                records_path = f"{candidate_arrays[0]}.item"
+                    # Count items in every top-level array in a single streaming pass
+                    if prefix.endswith(".item") and event in ("start_map", "start_array", "string", "number", "boolean", "null"):
+                        sec_name = prefix.split(".")[0]
+                        section_counts[sec_name] = section_counts.get(sec_name, 0) + 1
+                elif root_type == "array":
+                    if prefix == "item" and event in ("start_map", "start_array", "string", "number", "boolean", "null"):
+                        total_records += 1
 
-        # If still no array path found and root is object, records_path might be empty (single dictionary)
-        if root_type == "unknown":
-            root_type = "object"
+        if root_type == "object":
+            if section_counts:
+                # Pick the array with the LARGEST record count (e.g. 'stealer': 1,500,000)
+                max_sec = max(section_counts, key=section_counts.get)
+                records_path = f"{max_sec}.item"
+                total_records = section_counts[max_sec]
+            else:
+                records_path = "item"
 
-        # Pass 2: Count records and sample schema
+        # Pass 2: Sample schema from primary array
         target_path = records_path if records_path else "item"
         with open(self.filepath, "rb") as f:
             items_iter = ijson.items(f, target_path, use_float=True)
             for idx, item in enumerate(items_iter):
-                total_records += 1
-                if idx < 5:
-                    sample_records.append(item)
-                    if isinstance(item, dict):
-                        for k, v in item.items():
-                            if k not in sample_schema:
-                                sample_schema[k] = type(v).__name__
+                if idx >= 5:
+                    break
+                sample_records.append(item)
+                if isinstance(item, dict):
+                    for k, v in item.items():
+                        if k not in sample_schema:
+                            sample_schema[k] = type(v).__name__
+
+        # Build detailed sections summary string
+        section_summaries = []
+        if section_counts:
+            sorted_secs = sorted(section_counts.items(), key=lambda x: x[1], reverse=True)
+            for s_name, s_count in sorted_secs:
+                tag = " (Selected ⭐)" if s_name == records_path.split(".")[0] else ""
+                section_summaries.append(f"{s_name}: {s_count:,}{tag}")
+        elif sections:
+            section_summaries = sections[:10]
 
         return {
             "is_valid": True,
@@ -157,6 +166,7 @@ class StreamingJsonAnalyzer:
             "records_path": target_path,
             "total_records": total_records,
             "available_sections": sections,
+            "structure_summary": " | ".join(section_summaries) if section_summaries else "Root Array",
             "sample_schema": sample_schema,
             "error_message": None
         }

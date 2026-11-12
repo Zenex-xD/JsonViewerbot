@@ -416,13 +416,15 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     if data.startswith("dl_chunk:"):
-        _, file_id, chunk_index_str = data.split(":")
-        await send_chunk_file(query, user_id, file_id, int(chunk_index_str))
+        _, target_id, chunk_index_str = data.split(":")
+        await send_chunk_file(query, user_id, target_id, int(chunk_index_str))
         return
 
     if data.startswith("dl_all:"):
-        file_id = data.split(":")[1]
-        await send_all_chunks_zip(query, user_id, file_id)
+        parts = data.split(":")
+        file_id = parts[1]
+        job_id = parts[2] if len(parts) > 2 else None
+        await send_all_chunks_zip(query, user_id, file_id, job_id)
         return
 
     if data.startswith("dl_orig:"):
@@ -494,7 +496,7 @@ async def execute_chunking(query_or_msg, user_id: int, file_id: str, records_per
         edit_func = status_msg.edit_text if hasattr(status_msg, "edit_text") else query_or_msg.edit_message_text
         await edit_func(
             text,
-            reply_markup=get_download_keyboard(file_id, chunks),
+            reply_markup=get_download_keyboard(file_id, chunks, job_id=result["job_id"]),
             parse_mode=ParseMode.MARKDOWN
         )
 
@@ -554,15 +556,23 @@ async def send_chunk_file(query, user_id: int, file_id: str, chunk_index: int):
         )
 
 
-async def send_all_chunks_zip(query, user_id: int, file_id: str):
+async def send_all_chunks_zip(query, user_id: int, file_id: str, job_id: Optional[str] = None):
     f = db.get_file(file_id, user_id)
-    job = db.get_latest_completed_job(file_id, user_id)
+    if job_id:
+        with db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM chunk_jobs WHERE id = ?", (job_id,))
+            row = cursor.fetchone()
+            job = dict(row) if row else None
+    else:
+        job = db.get_latest_completed_job(file_id, user_id)
+
     if not f or not job:
         await query.message.reply_text("❌ No completed chunks found.")
         return
 
     chunks = db.get_chunks_for_job(job["id"])
-    zip_path = ZIPS_DIR / f"{file_id}_all_chunks.zip"
+    zip_path = ZIPS_DIR / f"{file_id}_{job['id']}_{job['records_per_chunk']}_all_chunks.zip"
 
     status_msg = await query.message.reply_text("⏳ *Creating ZIP archive of all chunks...*")
 
@@ -579,8 +589,8 @@ async def send_all_chunks_zip(query, user_id: int, file_id: str):
         with open(zip_path, "rb") as zf_in:
             await query.message.reply_document(
                 document=zf_in,
-                filename=f"{Path(f['original_name']).stem}_chunks.zip",
-                caption=f"📦 All {len(chunks)} Chunks for `{f['original_name']}`"
+                filename=f"{Path(f['original_name']).stem}_{job['records_per_chunk']}_chunks.zip",
+                caption=f"📦 All {len(chunks)} Chunks ({job['records_per_chunk']:,} recs/chunk) for `{f['original_name']}`"
             )
         await status_msg.delete()
     else:

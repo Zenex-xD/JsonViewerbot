@@ -279,15 +279,15 @@ class Database:
             """, (job_id,))
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_chunk(self, file_id: str, chunk_index: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def get_chunk(self, file_id_or_job_id: str, chunk_index: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             query = """
             SELECT c.* FROM chunks c
             JOIN chunk_jobs j ON j.id = c.job_id
-            WHERE c.file_id = ? AND c.chunk_index = ? AND j.status = 'completed'
+            WHERE (c.file_id = ? OR c.job_id = ?) AND c.chunk_index = ? AND j.status = 'completed'
             """
-            params = [file_id, chunk_index]
+            params = [file_id_or_job_id, file_id_or_job_id, chunk_index]
             if user_id is not None:
                 query += " AND c.user_id = ?"
                 params.append(user_id)
