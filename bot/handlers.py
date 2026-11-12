@@ -83,31 +83,45 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
 
-    # Check Telegram API download limit
-    if doc.file_size > TELEGRAM_MAX_DOWNLOAD_BYTES:
+    # Send progress message
+    status_msg = await message.reply_text(
+        "⏳ *Receiving & Downloading File...*\nProgress: `15%` [Downloading from Telegram]",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+    save_path = UPLOADS_DIR / f"{user_id}_{int(asyncio.get_event_loop().time())}_{filename}"
+
+    try:
+        # Try direct download from Telegram
+        tg_file = await context.bot.get_file(doc.file_id)
+        await tg_file.download_to_drive(str(save_path))
+    except Exception as dl_err:
+        # If Telegram rejects (File is too big > 20MB)
         token = generate_user_token(user_id)
         direct_url = f"{DIRECT_BASE_URL}/upload?user_id={user_id}&token={token}"
-        await message.reply_text(
-            f"⚠️ *File Exceeds Telegram 20MB Bot Limit* ({doc.file_size / (1024*1024):.1f} MB)\n\n"
-            f"Telegram restricts direct bot downloads to 20MB. Please use our high-speed direct upload link:\n"
-            f"🔗 [Click here to upload your 175MB+ file directly]({direct_url})\n\n"
-            f"Once uploaded, you will receive your analysis report immediately right here in chat!",
+        size_mb = doc.file_size / (1024 * 1024)
+
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        upload_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚡ Open Direct 175MB+ Uploader", url=direct_url)],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        ])
+
+        await status_msg.edit_text(
+            f"⚠️ *Telegram Bot API Limit* ({size_mb:.1f} MB)\n\n"
+            f"Telegram standard server bots ko 20MB se badi file download karne nahi deta (`{str(dl_err)}`).\n\n"
+            f"🔥 *2 Simple Jugad (Kaam ho jayega):*\n\n"
+            f"1️⃣ *Super Easy 2-Second Jugad (GZIP):*\n"
+            f"Apni file par Right-Click karein ➔ **Compress / .gz** (7-Zip ya Zip).\n"
+            f"Aapki {size_mb:.1f}MB ki file sirf **2MB se 3MB** ki ho jayegi! Usko yahan chat me bhej do — bot usko turant extract aur chunk kar dega!\n\n"
+            f"2️⃣ *Direct High-Speed Uploader:*\n"
+            f"Neeche button dabayein ya link kholein:\n"
+            f"`{direct_url}`",
+            reply_markup=upload_keyboard,
             parse_mode=ParseMode.MARKDOWN,
             disable_web_page_preview=True
         )
         return
-
-    # Send progress message
-    status_msg = await message.reply_text(
-        "⏳ *Receiving & Saving File...*\nProgress: `10%` [Downloading from Telegram]",
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-    try:
-        # Download file to uploads directory
-        save_path = UPLOADS_DIR / f"{user_id}_{int(asyncio.get_event_loop().time())}_{filename}"
-        tg_file = await context.bot.get_file(doc.file_id)
-        await tg_file.download_to_drive(str(save_path))
 
         await status_msg.edit_text(
             "⏳ *Computing SHA-256 & Checking Duplicates...*\nProgress: `30%`",

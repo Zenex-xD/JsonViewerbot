@@ -37,11 +37,12 @@ LOCAL_BOT_API_URL = os.getenv("LOCAL_BOT_API_URL", "").strip()
 
 # Direct Web Server URL for uploads/downloads exceeding Telegram limits
 # In Railway: RAILWAY_PUBLIC_DOMAIN is automatically provided
-RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip() or os.getenv("RAILWAY_STATIC_URL", "").strip()
 APP_URL = os.getenv("APP_URL", "").strip()
 
 if RAILWAY_PUBLIC_DOMAIN and not APP_URL:
-    DIRECT_BASE_URL = f"https://{RAILWAY_PUBLIC_DOMAIN}"
+    domain = RAILWAY_PUBLIC_DOMAIN.replace("https://", "").replace("http://", "")
+    DIRECT_BASE_URL = f"https://{domain}"
 elif APP_URL:
     DIRECT_BASE_URL = APP_URL.rstrip("/")
 else:
