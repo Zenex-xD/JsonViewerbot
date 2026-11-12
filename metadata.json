@@ -1,0 +1,6 @@
+{
+  "name": "JSON Explorer Telegram Bot",
+  "description": "Production-ready Python Telegram Bot for analyzing, streaming, exploring, and splitting large JSON and GZIP files into downloadable chunks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
