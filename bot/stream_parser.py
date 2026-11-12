@@ -141,7 +141,7 @@ class StreamingJsonAnalyzer:
         # Pass 2: Count records and sample schema
         target_path = records_path if records_path else "item"
         with open(self.filepath, "rb") as f:
-            items_iter = ijson.items(f, target_path)
+            items_iter = ijson.items(f, target_path, use_float=True)
             for idx, item in enumerate(items_iter):
                 total_records += 1
                 if idx < 5:
@@ -235,7 +235,7 @@ def stream_json_items(filepath: str, records_path: str = "item") -> Generator[An
     """
     if HAS_IJSON:
         with open(filepath, "rb") as f:
-            for item in ijson.items(f, records_path):
+            for item in ijson.items(f, records_path, use_float=True):
                 yield item
     else:
         # Fallback memory-bounded reader

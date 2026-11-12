@@ -46,7 +46,7 @@ class JsonExplorer:
 
         current = 1
         for item in stream_json_items(self.source_path, self.records_path):
-            item_str = json.dumps(item, ensure_ascii=False).lower()
+            item_str = json.dumps(item, ensure_ascii=False, default=str).lower()
             if q_lower in item_str:
                 results.append((current, item))
                 if len(results) >= max_results:
@@ -59,7 +59,7 @@ class JsonExplorer:
         """
         Formats record as pretty JSON within Telegram's 4096 character limit.
         """
-        formatted = json.dumps(item, indent=2, ensure_ascii=False)
+        formatted = json.dumps(item, indent=2, ensure_ascii=False, default=str)
         # Leave room for header/footer (approx 3000 chars code block)
         if len(formatted) > 3000:
             formatted = formatted[:2950] + "\n  ... [truncated for Telegram display]"

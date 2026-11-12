@@ -12,11 +12,19 @@ Guarantees:
 import os
 import json
 import hashlib
+import decimal
 from typing import Dict, Any, List, Optional, Callable
 from pathlib import Path
 from bot.config import CHUNKS_DIR
 from bot.database import db
 from bot.stream_parser import stream_json_items, compute_file_sha256
+
+def default_json_serializer(obj):
+    if isinstance(obj, decimal.Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    return str(obj)
 
 class JsonChunker:
     def __init__(self, file_id: str, records_per_chunk: int, user_id: int):
@@ -122,9 +130,9 @@ class JsonChunker:
         temp_path = job_dir / f"chunk_{chunk_index}.tmp.json"
         final_path = job_dir / f"chunk_{chunk_index}.json"
 
-        # Write formatted JSON array
+        # Write formatted JSON array (handles Decimal, float, int safely)
         with open(temp_path, "w", encoding="utf-8") as f:
-            json.dump(records, f, indent=2, ensure_ascii=False)
+            json.dump(records, f, indent=2, ensure_ascii=False, default=default_json_serializer)
 
         # Atomic rename
         temp_path.replace(final_path)
