@@ -107,22 +107,26 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
             [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
         ])
 
-        await status_msg.edit_text(
-            f"⚠️ *Telegram Bot API Limit* ({size_mb:.1f} MB)\n\n"
-            f"Telegram standard server bots ko 20MB se badi file download karne nahi deta (`{str(dl_err)}`).\n\n"
-            f"🔥 *2 Simple Jugad (Kaam ho jayega):*\n\n"
-            f"1️⃣ *Super Easy 2-Second Jugad (GZIP):*\n"
-            f"Apni file par Right-Click karein ➔ **Compress / .gz** (7-Zip ya Zip).\n"
-            f"Aapki {size_mb:.1f}MB ki file sirf **2MB se 3MB** ki ho jayegi! Usko yahan chat me bhej do — bot usko turant extract aur chunk kar dega!\n\n"
-            f"2️⃣ *Direct High-Speed Uploader:*\n"
-            f"Neeche button dabayein ya link kholein:\n"
-            f"`{direct_url}`",
-            reply_markup=upload_keyboard,
-            parse_mode=ParseMode.MARKDOWN,
-            disable_web_page_preview=True
-        )
+        try:
+            await status_msg.edit_text(
+                f"⚠️ *Telegram 20MB Limit Notice* ({size_mb:.1f} MB)\n\n"
+                f"Telegram server 20MB se badi file direct download nahi karne deta.\n\n"
+                f"🔥 *2 Simple Jugad (Solutions):*\n\n"
+                f"1️⃣ *Super Easy (2-Second Jugad):*\n"
+                f"Apni file par Right-Click karein ➔ **Compress (.gz ya .zip)**.\n"
+                f"Aapki {size_mb:.1f}MB ki file sirf **2MB se 3MB** ban jayegi! Usko yahan chat me bhej do — bot turant chunk kar dega!\n\n"
+                f"2️⃣ *Direct Uploader Link:*\n"
+                f"`{direct_url}`",
+                reply_markup=upload_keyboard,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True
+            )
+        except Exception:
+            pass
         return
 
+    # Normal flow after successful download
+    try:
         await status_msg.edit_text(
             "⏳ *Computing SHA-256 & Checking Duplicates...*\nProgress: `30%`",
             parse_mode=ParseMode.MARKDOWN
